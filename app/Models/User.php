@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+// Tambahkan import FilamentUser dan Panel
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Notifications\ResetPasswordNotification; // <--- 1. JANGAN LUPA INI
+use App\Notifications\ResetPasswordNotification;
 
-class User extends Authenticatable
+// Tambahkan "implements FilamentUser" di baris class
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -49,11 +52,16 @@ class User extends Authenticatable
     }
 
     /**
-     * Mengirim notifikasi reset password dengan template custom.
-     * * @param  string  $token
-     * @return void
+     * Fungsi dari Filament untuk mengatur siapa yang boleh masuk ke admin panel.
      */
-    // 2. FUNGSI INI WAJIB ADA AGAR EMAIL CUSTOM MUNCUL
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return str_ends_with($this->email, 'ilham.nurfajri121@gmail.com');
+    }
+
+    /**
+     * Mengirim notifikasi reset password dengan template custom.
+     */
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new ResetPasswordNotification($token));
