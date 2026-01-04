@@ -1,0 +1,121 @@
+name: Laravel CI - All Tests + HTML & XML Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: db_homeschoolingTest
+          MYSQL_USER: hometest
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: db_homeschoolingTest
+      DB_USERNAME: hometest
+      DB_PASSWORD: secret
+      APP_ENV: testing
+      APP_DEBUG: true
+      LOG_CHANNEL: stack
+
+    steps:
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Set up PHP
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: mbstring, bcmath, mysql, pdo, tokenizer, xdebug
+          coverage: pcov
+          ini-values: date.timezone=Asia/Jakarta
+
+      # Cache Composer dependencies
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: homeschooling/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('homeschooling/**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      # Install Composer dependencies
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+        working-directory: homeschooling
+
+      # Copy .env
+      - name: Copy .env
+        run: cp .env.example .env
+        working-directory: homeschooling
+
+      # Generate APP_KEY
+      - name: Generate APP_KEY
+        run: php artisan key:generate
+        working-directory: homeschooling
+
+      # Run migrations
+      - name: Run Migrations
+        run: php artisan migrate --force
+        working-directory: homeschooling
+
+      # Setup Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # Install Node dependencies
+      - name: Install Node dependencies
+        run: npm install
+        working-directory: homeschooling
+
+      # Build frontend assets
+      - name: Build frontend assets
+        run: npm run build
+        working-directory: homeschooling
+
+      # Run all tests + generate HTML & XML coverage
+      - name: Run All Tests + Coverage
+        run: |
+          ./vendor/bin/pest \
+            --coverage-html=coverage/html \
+            --coverage-clover=coverage/clover.xml \
+            --coverage-filter=app
+        working-directory: homeschooling
+
+      # Upload HTML coverage as artifact
+      - name: Upload Coverage HTML Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: homeschooling/coverage/html
+
+      # Upload XML coverage as artifact
+      - name: Upload Coverage XML Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: homeschooling/coverage/clover.xml
